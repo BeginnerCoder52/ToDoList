@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">ToDoList</string>
+    <string name="add_new_task">Thêm công việc mới</string>
+    <string name="title_hint">Tiêu đề công việc</string>
+    <string name="description_hint">Mô tả (không bắt buộc)</string>
+    <string name="deadline_placeholder">Chọn deadline</string>
+    <string name="save">HOÀN THÀNH</string>
+</resources>
