@@ -1,94 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@drawable/dialog_rounded_bg"
-    android:padding="32dp">
+    android:background="@drawable/dialog_rounded_bg">
 
-    <!-- Icon đèn bàn dễ thương -->
-    <ImageView
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:src="@drawable/ic_lamp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="THÊM CÔNG VIỆC MỚI"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/blue_end"
-        android:layout_gravity="center"
-        android:layout_marginBottom="24dp"/>
-
-    <!-- Tiêu đề -->
-    <com.google.android.material.textfield.TextInputLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        android:orientation="vertical"
+        android:padding="24dp">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etTitle"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Công việc mới"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/blue_primary"
+            android:layout_gravity="center"
+            android:layout_marginBottom="24dp"/>
+
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Tiêu đề công việc"
-            android:inputType="textCapSentences"
-            android:minHeight="56dp"/>
-    </com.google.android.material.textfield.TextInputLayout>
+            android:hint="Tiêu đề"
+            app:boxStrokeColor="@color/blue_primary"
+            app:hintTextColor="@color/blue_primary"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_marginBottom="16dp">
 
-    <!-- Mô tả -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapSentences"
+                android:textColor="@color/text_primary"/>
+        </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etDescription"
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Mô tả (không bắt buộc)"
-            android:inputType="textCapSentences|textMultiLine"
-            android:lines="3"/>
-    </com.google.android.material.textfield.TextInputLayout>
+            android:hint="Mô tả chi tiết"
+            app:boxStrokeColor="@color/blue_primary"
+            app:hintTextColor="@color/blue_primary"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_marginBottom="16dp">
 
-    <!-- Deadline -->
-    <TextView
-        android:id="@+id/tvDeadline"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="Chọn deadline"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:background="@drawable/edittext_background"
-        android:layout_marginBottom="16dp"
-        android:drawableEnd="@drawable/ic_calendar"
-        android:drawablePadding="12dp"/>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:lines="3"
+                android:gravity="top"
+                android:textColor="@color/text_primary"/>
+        </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Trạng thái -->
-    <Spinner
-        android:id="@+id/spinnerStatus"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginBottom="24dp"
-        android:background="@drawable/spinner_background"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp">
 
-    <!-- Nút lưu -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSave"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:text="HOÀN THÀNH"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:cornerRadius="32dp"
-        app:backgroundTint="@color/cyan"
-        android:layout_marginTop="8dp"/>
-</LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Hạn chót"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:id="@+id/tvDeadline"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="Chọn ngày giờ"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:background="@drawable/edittext_background"
+                android:drawableEnd="@drawable/ic_calendar"
+                android:drawablePadding="8dp"
+                android:textColor="@color/text_primary"/>
+        </LinearLayout>
+
+        <Spinner
+            android:id="@+id/spinnerStatus"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/spinner_background"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Lưu công việc"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/blue_primary"
+            app:cornerRadius="12dp"/>
+    </LinearLayout>
+</ScrollView>
