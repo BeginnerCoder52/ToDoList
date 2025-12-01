@@ -1,19 +1,35 @@
 package com.example.todolist;
 
+import android.Manifest;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.view.Menu;     // Import Menu
+import android.view.MenuItem; // Import MenuItem
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull; // Import NonNull
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
+
 import com.example.todolist.databinding.ActivityMainBinding;
-import com.example.todolist.databinding.DialogAddTodoBinding;  // phải có dòng này
+import com.example.todolist.databinding.DialogAddTodoBinding;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
@@ -21,7 +37,13 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private ArrayList<TodoItem> todoList;
     private TodoAdapter todoAdapter;
-    private final Calendar calendar = Calendar.getInstance();
+
+    // Danh sách contact tạm thời trong Dialog
+    private ArrayList<Contact> tempSelectedContacts = new ArrayList<>();
+    private ContactAdapter tempContactAdapter;
+
+    private static final int REQUEST_CODE_PICK_CONTACT = 1001;
+    private static final int REQUEST_PERMISSION_READ_CONTACTS = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,31 +51,72 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        todoList = new ArrayList<>();
-        todoAdapter = new TodoAdapter(todoList, this);
+        // 1. Setup Toolbar để hiện tiêu đề và Menu
+        setSupportActionBar(binding.toolbar);
 
+        // 2. Xin quyền danh bạ
+        checkPermission();
+
+        todoList = new ArrayList<>();
+        // Dữ liệu mẫu test
+        todoList.add(new TodoItem("Bài tập Contact", "Test chức năng thêm người", "30/11/2025 20:00", "Đang làm", false, new ArrayList<>()));
+
+        todoAdapter = new TodoAdapter(todoList, this);
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
         binding.recyclerView.setAdapter(todoAdapter);
 
         updateDateHeader();
 
-        binding.fabAdd.setOnClickListener(v -> showAddTodoDialog());
+        // 3. Sự kiện nút FAB (Thêm mới -> gọi dialog với null)
+        binding.fabAdd.setOnClickListener(v -> showTodoDialog(null, -1));
     }
 
-    private void updateDateHeader() {
-        SimpleDateFormat monthFormat = new SimpleDateFormat("MMMM", Locale.getDefault());
-        SimpleDateFormat dayFormat = new SimpleDateFormat("d", Locale.getDefault());
-        String dayStr = dayFormat.format(new Date());
-        int day = Integer.parseInt(dayStr);
+    // ================== PHẦN MENU (Option & Context) ==================
 
-        String suffix = (day % 10 == 1 && day != 11) ? "st" :
-                (day % 10 == 2 && day != 12) ? "nd" :
-                        (day % 10 == 3 && day != 13) ? "rd" : "th";
-
-        binding.tvDate.setText(monthFormat.format(new Date()) + " " + day + suffix);
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu); // Đảm bảo bạn có file res/menu/main_menu.xml
+        return true;
     }
 
-    private void showAddTodoDialog() {
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_new) {
+            showTodoDialog(null, -1);
+            return true;
+        } else if (id == R.id.action_select_all) {
+            selectAllTasks();
+            return true;
+        } else if (id == R.id.action_delete_selected) {
+            deleteSelectedTasks();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public boolean onContextItemSelected(@NonNull MenuItem item) {
+        int position = item.getGroupId();
+        if (position < 0 || position >= todoList.size()) return super.onContextItemSelected(item);
+
+        TodoItem selectedItem = todoList.get(position);
+
+        switch (item.getItemId()) {
+            case 121: // Edit
+                showTodoDialog(selectedItem, position);
+                return true;
+            case 122: // Delete
+                deleteTodoItem(position);
+                return true;
+            default:
+                return super.onContextItemSelected(item);
+        }
+    }
+
+    // ================== PHẦN DIALOG & CONTACTS ==================
+
+    private void showTodoDialog(TodoItem itemToEdit, int position) {
         DialogAddTodoBinding dialogBinding = DialogAddTodoBinding.inflate(getLayoutInflater());
 
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -61,13 +124,50 @@ public class MainActivity extends AppCompatActivity {
                 .setCancelable(true)
                 .create();
 
-        // Spinner
+        // 1. Reset list tạm
+        tempSelectedContacts.clear();
+
+        // Nếu đang Sửa (Edit), copy danh sách contact cũ sang list tạm để hiển thị
+        if (itemToEdit != null) {
+            tempSelectedContacts.addAll(itemToEdit.getContacts());
+            dialogBinding.tvHeaderTitle.setText("CẬP NHẬT CÔNG VIỆC");
+            dialogBinding.etTitle.setText(itemToEdit.getTitle());
+            dialogBinding.etDescription.setText(itemToEdit.getDescription());
+            dialogBinding.tvDeadline.setText(itemToEdit.getDeadline());
+            dialogBinding.btnSave.setText("LƯU THAY ĐỔI");
+        }
+
+        // 2. Setup RecyclerView Contact trong Dialog
+        tempContactAdapter = new ContactAdapter(this, tempSelectedContacts, false);
+        dialogBinding.rvSelectedContacts.setLayoutManager(
+                new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        dialogBinding.rvSelectedContacts.setAdapter(tempContactAdapter);
+
+        // 3. Nút mở danh bạ
+        dialogBinding.btnAddContact.setOnClickListener(v -> {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                Intent intent = new Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI);
+                startActivityForResult(intent, REQUEST_CODE_PICK_CONTACT);
+            } else {
+                Toast.makeText(this, "Cần cấp quyền danh bạ", Toast.LENGTH_SHORT).show();
+                checkPermission();
+            }
+        });
+
+        // 4. Spinner & DatePicker
         String[] statuses = {"Đang làm", "Hoàn thành", "Hủy", "Tạm hoãn"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, statuses);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, statuses);
         dialogBinding.spinnerStatus.setAdapter(adapter);
 
-        // Chọn deadline
+        if (itemToEdit != null) { // Set status cũ nếu đang edit
+            for(int i=0; i<statuses.length; i++) {
+                if(statuses[i].equals(itemToEdit.getStatus())) {
+                    dialogBinding.spinnerStatus.setSelection(i);
+                    break;
+                }
+            }
+        }
+
         dialogBinding.tvDeadline.setOnClickListener(v -> {
             Calendar cal = Calendar.getInstance();
             new DatePickerDialog(this, (view, year, month, day) -> {
@@ -81,24 +181,107 @@ public class MainActivity extends AppCompatActivity {
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
         });
 
-        // Lưu
+        // 5. Lưu
         dialogBinding.btnSave.setOnClickListener(v -> {
             String title = dialogBinding.etTitle.getText().toString().trim();
-            if (title.isEmpty()) {
-                Toast.makeText(this, "Nhập tiêu đề đi bạn ơi!", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            if (title.isEmpty()) return;
             String desc = dialogBinding.etDescription.getText().toString().trim();
             String deadline = dialogBinding.tvDeadline.getText().toString();
             if (deadline.equals("Chọn deadline")) deadline = "Không đặt hạn";
-
             String status = dialogBinding.spinnerStatus.getSelectedItem().toString();
 
-            todoList.add(new TodoItem(title, desc, deadline, status, false));
-            todoAdapter.notifyItemInserted(todoList.size() - 1);
+            // Copy list contact từ biến tạm
+            ArrayList<Contact> finalContacts = new ArrayList<>(tempSelectedContacts);
+
+            if (itemToEdit == null) {
+                // Thêm mới
+                todoList.add(new TodoItem(title, desc, deadline, status, false, finalContacts));
+                todoAdapter.notifyItemInserted(todoList.size() - 1);
+            } else {
+                // Cập nhật (Edit) - Tạo object mới đè vào vị trí cũ
+                TodoItem newItem = new TodoItem(title, desc, deadline, status, itemToEdit.isCompleted(), finalContacts);
+                todoList.set(position, newItem);
+                todoAdapter.notifyItemChanged(position);
+            }
             dialog.dismiss();
         });
 
         dialog.show();
+    }
+
+    // ================== CÁC HÀM HỖ TRỢ ==================
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_PICK_CONTACT && resultCode == RESULT_OK && data != null) {
+            // Logic lấy contact (giữ nguyên như cũ)
+            Uri contactUri = data.getData();
+            if (contactUri == null) return;
+            Cursor cursor = getContentResolver().query(contactUri, null, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                try {
+                    int idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID);
+                    int nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
+                    int photoIndex = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_URI);
+                    int hasPhoneIndex = cursor.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER);
+
+                    if (idIndex != -1 && nameIndex != -1) {
+                        String id = cursor.getString(idIndex);
+                        String name = cursor.getString(nameIndex);
+                        String photoUri = (photoIndex != -1) ? cursor.getString(photoIndex) : null;
+                        String phone = "Không sđt";
+
+                        if (hasPhoneIndex != -1 && Integer.parseInt(cursor.getString(hasPhoneIndex)) > 0) {
+                            Cursor pCur = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null, ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?", new String[]{id}, null);
+                            if (pCur != null) {
+                                if (pCur.moveToFirst()) {
+                                    int numIndex = pCur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                                    if (numIndex != -1) phone = pCur.getString(numIndex);
+                                }
+                                pCur.close();
+                            }
+                        }
+                        tempSelectedContacts.add(new Contact(name, phone, photoUri));
+                        if (tempContactAdapter != null) tempContactAdapter.notifyDataSetChanged();
+                    }
+                } catch (Exception e) { e.printStackTrace(); }
+                finally { cursor.close(); }
+            }
+        }
+    }
+
+    private void selectAllTasks() {
+        for (TodoItem item : todoList) item.setCompleted(true);
+        todoAdapter.notifyDataSetChanged();
+    }
+
+    private void deleteSelectedTasks() {
+        Iterator<TodoItem> iterator = todoList.iterator();
+        while (iterator.hasNext()) {
+            if (iterator.next().isCompleted()) iterator.remove();
+        }
+        todoAdapter.notifyDataSetChanged();
+    }
+
+    private void deleteTodoItem(int position) {
+        todoList.remove(position);
+        todoAdapter.notifyItemRemoved(position);
+        todoAdapter.notifyItemRangeChanged(position, todoList.size());
+    }
+
+    private void checkPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CONTACTS}, REQUEST_PERMISSION_READ_CONTACTS);
+        }
+    }
+
+    private void updateDateHeader() {
+        SimpleDateFormat monthFormat = new SimpleDateFormat("MMMM", Locale.getDefault());
+        SimpleDateFormat dayFormat = new SimpleDateFormat("d", Locale.getDefault());
+        String dayStr = dayFormat.format(new Date());
+        int day = Integer.parseInt(dayStr);
+        String suffix = (day % 10 == 1 && day != 11) ? "st" : (day % 10 == 2 && day != 12) ? "nd" : (day % 10 == 3 && day != 13) ? "rd" : "th";
+        binding.tvDate.setText(String.format("%s %s%s", monthFormat.format(new Date()), day, suffix));
     }
 }

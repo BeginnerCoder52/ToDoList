@@ -5,41 +5,54 @@
     android:layout_height="match_parent"
     android:background="@drawable/gradient_background">
 
-    <!-- Tiêu đề ngày lớn như hình mẫu -->
-    <LinearLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="32dp">
+        android:background="@android:color/transparent"
+        app:elevation="0dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Today"
-            android:textColor="#CCFFFFFF"
-            android:textSize="18sp"/>
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="ToDo List"
+            app:titleTextColor="@color/white"
+            app:titleTextAppearance="@style/TextAppearance.AppCompat.Large"/>
 
-        <TextView
-            android:id="@+id/tvDate"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="April 8th"
-            android:textColor="@color/white"
-            android:textSize="42sp"
-            android:fontFamily="sans-serif-light"
-            android:layout_marginTop="8dp"/>
-    </LinearLayout>
+            android:orientation="vertical"
+            android:paddingStart="32dp"
+            android:paddingBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textColor="#CCFFFFFF"
+                android:textSize="18sp"/>
+
+            <TextView
+                android:id="@+id/tvDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="April 8th"
+                android:textColor="@color/white"
+                android:textSize="42sp"
+                android:fontFamily="sans-serif-light"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="140dp"
         android:padding="16dp"
         android:clipToPadding="false"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
 
-    <!-- FAB siêu nổi bật -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAdd"
         android:layout_width="wrap_content"
@@ -47,7 +60,7 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="28dp"
         android:src="@drawable/ic_add_cyan"
-        android:contentDescription="@string/add_new_task"
+        android:contentDescription="Add Task"
         app:fabSize="normal"
         app:backgroundTint="@color/cyan"
         app:borderWidth="0dp"
