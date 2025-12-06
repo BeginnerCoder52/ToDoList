@@ -9,13 +9,12 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
-import android.view.Menu;     // Import Menu
-import android.view.MenuItem; // Import MenuItem
-import android.view.View;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull; // Import NonNull
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -37,8 +36,8 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private ArrayList<TodoItem> todoList;
     private TodoAdapter todoAdapter;
+    private TodoRepo todoRepo; // Thêm TodoRepo
 
-    // Danh sách contact tạm thời trong Dialog
     private ArrayList<Contact> tempSelectedContacts = new ArrayList<>();
     private ContactAdapter tempContactAdapter;
 
@@ -51,15 +50,13 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // 1. Setup Toolbar để hiện tiêu đề và Menu
         setSupportActionBar(binding.toolbar);
-
-        // 2. Xin quyền danh bạ
         checkPermission();
 
-        todoList = new ArrayList<>();
-        // Dữ liệu mẫu test
-        todoList.add(new TodoItem("Bài tập Contact", "Test chức năng thêm người", "30/11/2025 20:00", "Đang làm", false, new ArrayList<>()));
+        // --- TÍCH HỢP SQLITE ---
+        todoRepo = new TodoRepo(this);
+        loadDataFromDatabase(); // Tải dữ liệu từ DB
+        // --- KẾT THÚC TÍCH HỢP ---
 
         todoAdapter = new TodoAdapter(todoList, this);
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -67,15 +64,23 @@ public class MainActivity extends AppCompatActivity {
 
         updateDateHeader();
 
-        // 3. Sự kiện nút FAB (Thêm mới -> gọi dialog với null)
         binding.fabAdd.setOnClickListener(v -> showTodoDialog(null, -1));
     }
 
-    // ================== PHẦN MENU (Option & Context) ==================
+    // --- Tải dữ liệu từ cơ sở dữ liệu ---
+    private void loadDataFromDatabase() {
+        todoList = todoRepo.getAllTodos();
+        // Nếu DB trống, có thể thêm dữ liệu mẫu
+        if (todoList.isEmpty()) {
+            TodoItem sampleItem = new TodoItem("Bài tập Contact", "Test chức năng thêm người", "30/11/2025 20:00", "Đang làm", false, new ArrayList<>());
+            todoRepo.addTodo(sampleItem);
+            todoList.add(sampleItem);
+        }
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu); // Đảm bảo bạn có file res/menu/main_menu.xml
+        getMenuInflater().inflate(R.menu.main_menu, menu);
         return true;
     }
 
@@ -114,20 +119,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ================== PHẦN DIALOG & CONTACTS ==================
-
     private void showTodoDialog(TodoItem itemToEdit, int position) {
         DialogAddTodoBinding dialogBinding = DialogAddTodoBinding.inflate(getLayoutInflater());
-
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setView(dialogBinding.getRoot())
                 .setCancelable(true)
                 .create();
 
-        // 1. Reset list tạm
         tempSelectedContacts.clear();
 
-        // Nếu đang Sửa (Edit), copy danh sách contact cũ sang list tạm để hiển thị
         if (itemToEdit != null) {
             tempSelectedContacts.addAll(itemToEdit.getContacts());
             dialogBinding.tvHeaderTitle.setText("CẬP NHẬT CÔNG VIỆC");
@@ -137,13 +137,11 @@ public class MainActivity extends AppCompatActivity {
             dialogBinding.btnSave.setText("LƯU THAY ĐỔI");
         }
 
-        // 2. Setup RecyclerView Contact trong Dialog
         tempContactAdapter = new ContactAdapter(this, tempSelectedContacts, false);
         dialogBinding.rvSelectedContacts.setLayoutManager(
                 new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         dialogBinding.rvSelectedContacts.setAdapter(tempContactAdapter);
 
-        // 3. Nút mở danh bạ
         dialogBinding.btnAddContact.setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
                 Intent intent = new Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI);
@@ -154,14 +152,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 4. Spinner & DatePicker
         String[] statuses = {"Đang làm", "Hoàn thành", "Hủy", "Tạm hoãn"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, statuses);
         dialogBinding.spinnerStatus.setAdapter(adapter);
 
-        if (itemToEdit != null) { // Set status cũ nếu đang edit
-            for(int i=0; i<statuses.length; i++) {
-                if(statuses[i].equals(itemToEdit.getStatus())) {
+        if (itemToEdit != null) {
+            for (int i = 0; i < statuses.length; i++) {
+                if (statuses[i].equals(itemToEdit.getStatus())) {
                     dialogBinding.spinnerStatus.setSelection(i);
                     break;
                 }
@@ -181,7 +178,6 @@ public class MainActivity extends AppCompatActivity {
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
         });
 
-        // 5. Lưu
         dialogBinding.btnSave.setOnClickListener(v -> {
             String title = dialogBinding.etTitle.getText().toString().trim();
             if (title.isEmpty()) return;
@@ -190,17 +186,19 @@ public class MainActivity extends AppCompatActivity {
             if (deadline.equals("Chọn deadline")) deadline = "Không đặt hạn";
             String status = dialogBinding.spinnerStatus.getSelectedItem().toString();
 
-            // Copy list contact từ biến tạm
             ArrayList<Contact> finalContacts = new ArrayList<>(tempSelectedContacts);
 
             if (itemToEdit == null) {
-                // Thêm mới
-                todoList.add(new TodoItem(title, desc, deadline, status, false, finalContacts));
+                // Thêm mới vào DB
+                TodoItem newItem = new TodoItem(title, desc, deadline, status, false, finalContacts);
+                todoRepo.addTodo(newItem);
+                todoList.add(newItem);
                 todoAdapter.notifyItemInserted(todoList.size() - 1);
             } else {
-                // Cập nhật (Edit) - Tạo object mới đè vào vị trí cũ
-                TodoItem newItem = new TodoItem(title, desc, deadline, status, itemToEdit.isCompleted(), finalContacts);
-                todoList.set(position, newItem);
+                // Cập nhật trong DB
+                TodoItem updatedItem = new TodoItem(itemToEdit.getId(), title, desc, deadline, status, itemToEdit.isCompleted(), finalContacts);
+                todoRepo.updateTodo(updatedItem);
+                todoList.set(position, updatedItem);
                 todoAdapter.notifyItemChanged(position);
             }
             dialog.dismiss();
@@ -209,13 +207,10 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    // ================== CÁC HÀM HỖ TRỢ ==================
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_CODE_PICK_CONTACT && resultCode == RESULT_OK && data != null) {
-            // Logic lấy contact (giữ nguyên như cũ)
             Uri contactUri = data.getData();
             if (contactUri == null) return;
             Cursor cursor = getContentResolver().query(contactUri, null, null, null, null);
@@ -245,26 +240,38 @@ public class MainActivity extends AppCompatActivity {
                         tempSelectedContacts.add(new Contact(name, phone, photoUri));
                         if (tempContactAdapter != null) tempContactAdapter.notifyDataSetChanged();
                     }
-                } catch (Exception e) { e.printStackTrace(); }
-                finally { cursor.close(); }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    cursor.close();
+                }
             }
         }
     }
 
     private void selectAllTasks() {
-        for (TodoItem item : todoList) item.setCompleted(true);
+        for (TodoItem item : todoList) {
+            item.setCompleted(true);
+            todoRepo.updateTodo(item); // Cập nhật trạng thái trong DB
+        }
         todoAdapter.notifyDataSetChanged();
     }
 
     private void deleteSelectedTasks() {
         Iterator<TodoItem> iterator = todoList.iterator();
         while (iterator.hasNext()) {
-            if (iterator.next().isCompleted()) iterator.remove();
+            TodoItem item = iterator.next();
+            if (item.isCompleted()) {
+                todoRepo.deleteTodo(item.getId()); // Xóa khỏi DB
+                iterator.remove();
+            }
         }
         todoAdapter.notifyDataSetChanged();
     }
 
     private void deleteTodoItem(int position) {
+        TodoItem item = todoList.get(position);
+        todoRepo.deleteTodo(item.getId()); // Xóa khỏi DB
         todoList.remove(position);
         todoAdapter.notifyItemRemoved(position);
         todoAdapter.notifyItemRangeChanged(position, todoList.size());

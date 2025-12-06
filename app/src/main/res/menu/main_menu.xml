@@ -5,16 +5,18 @@
     <item
         android:id="@+id/action_new"
         android:icon="@drawable/ic_add_white"
-        android:title="New"
+        android:title="Add Task"
         app:showAsAction="ifRoom" />
 
     <item
         android:id="@+id/action_select_all"
+        android:icon="@drawable/ic_select_all"
         android:title="Select All"
-        app:showAsAction="never" />
+        app:showAsAction="ifRoom" />
 
     <item
         android:id="@+id/action_delete_selected"
+        android:icon="@drawable/ic_delete"
         android:title="Delete Selected"
-        app:showAsAction="never" />
+        app:showAsAction="ifRoom" />
 </menu>
